@@ -28,7 +28,7 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      # 4. Cordova Install කිරීම, Web App සකස් කිරීම සහ APK Build කිරීම
+      # 4. Cordova Install කිරීම, Timeout එක වැඩි කිරීම සහ APK Build කිරීම
       - name: Build APK using Cordova
         run: |
           npm install -g cordova
@@ -39,12 +39,18 @@ jobs:
           cp index.html cordovaApp/www/ 2>/dev/null || true
           cp manifest.json cordovaApp/www/ 2>/dev/null || true
           cp icon.png cordovaApp/www/ 2>/dev/null || true
-          
+          cp sw.js cordovaApp/www/ 2>/dev/null || true
+
           cd cordovaApp
+          
+          # Timeout Error එක නවත්වා ගැනීමට LoadUrlTimeoutValue එක config.xml එකට එකතු කිරීම
+          sed -i '/<\/widget>/i \    <preference name="LoadUrlTimeoutValue" value="70000" />' config.xml
+          sed -i '/<\/widget>/i \    <preference name="AndroidInsecureFileModeEnabled" value="true" />' config.xml
+
           cordova platform add android
           cordova build android --debug
 
-      # 5. Build වූ APK එක Download කිරීමට Artifacts වලට Upload කිරීම
+      # 5. Build වූ APK එක Upload කිරීම
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
