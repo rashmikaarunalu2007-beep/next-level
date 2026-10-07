@@ -1,0 +1,56 @@
+name: Build Android APK
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. GitHub Repository එකේ Files ටික ගෙන්නා ගැනීම
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Node.js Install කිරීම
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      # 3. Java JDK 17 Setup කිරීම
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      # 4. Android SDK Tools Setup කිරීම
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      # 5. Cordova Install කිරීම සහ Project එක Build කිරීම
+      - name: Build APK using Cordova
+        run: |
+          npm install -g cordova
+          cordova create cordovaApp com.nextlevel.app NextLevel
+          
+          # Web files ටික Cordova www folder එකට copy කිරීම
+          rm -rf cordovaApp/www/*
+          cp index.html cordovaApp/www/ 2>/dev/null || true
+          cp manifest.json cordovaApp/www/ 2>/dev/null || true
+          cp icon.png cordovaApp/www/ 2>/dev/null || true
+          
+          cd cordovaApp
+          cordova platform add android
+          cordova build android --debug
+
+      # 6. Build වූ APK එක Download කිරීමට Artifacts වලට Upload කිරීම
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NextLevel-APK
+          path: cordovaApp/platforms/android/app/build/outputs/apk/debug/app-debug.apk
