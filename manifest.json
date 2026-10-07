@@ -1,6 +1,7 @@
 {
-  "name": "Next Level Fitness ",
-  "short_name": "NextLevel",
+  "name": "Next level Fitness",
+  "short_name": "Nextlevel",
+  "description": "Your ultimate fitness tracker app",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#0B0F17",
@@ -9,12 +10,14 @@
     {
       "src": "icon.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
       "src": "icon.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
