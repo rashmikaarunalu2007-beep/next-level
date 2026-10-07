@@ -466,5 +466,12 @@ fillSelects();sndUI();go('dash');userUI();
 {const u=getUser();if(!u||!u.name)showProfile();else if(!u.synced)syncUser({name:u.name,phone:u.phone,birthday:u.birthday,timestamp:u.timestamp})}
 window.addEventListener('load',renderDash);
 </script>
+  <script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js')
+      .then(() => console.log('Service Worker Registered Successfully!'))
+      .catch((err) => console.log('Service Worker Failed:', err));
+  }
+</script>
 </body>
 </html>
