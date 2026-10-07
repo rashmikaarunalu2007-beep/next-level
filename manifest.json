@@ -1,5 +1,5 @@
 {
-  "name": "Next Level Fitness Tracker",
+  "name": "Next Level Fitness ",
   "short_name": "NextLevel",
   "start_url": "./index.html",
   "display": "standalone",
@@ -7,12 +7,12 @@
   "theme_color": "#0B0F17",
   "icons": [
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/2964/2964514.png",
+      "src": "icon.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/2964/2964514.png",
+      "src": "icon.png",
       "sizes": "512x512",
       "type": "image/png"
     }
