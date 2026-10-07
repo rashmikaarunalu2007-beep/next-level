@@ -50,6 +50,10 @@ nav button{font-size:10px}.gold{color:#FFD700}
 #modal .box{max-width:380px;width:100%;max-height:85vh;overflow:auto;text-align:center;animation:pop .5s cubic-bezier(.2,1.4,.4,1)}
 @keyframes pop{from{transform:scale(.6);opacity:0}to{transform:none;opacity:1}}
 input[type=date],input[type=month]{color-scheme:dark}
+.swp{position:relative;overflow:hidden;border-radius:14px;width:100%}
+.swp-bg{position:absolute;inset:0;background:#FF4D4D;color:#fff;display:flex;align-items:center;justify-content:flex-end;padding-right:18px;font-weight:700;font-size:13px}
+.swp-fg{position:relative;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 14px;background:#161C28;border:1px solid rgba(0,229,255,.3);border-radius:14px;font-size:14px;touch-action:pan-y;user-select:none;-webkit-user-select:none;cursor:grab}
+.swp-fg button{background:none;border:0;color:var(--mut);cursor:pointer;font-size:18px;line-height:1;padding:0 4px}
 </style>
 </head>
 <body>
@@ -224,13 +228,23 @@ function renderDash(){
 /* ---------- Logger ---------- */
 function fillSelects(){
  $('#routineSel').innerHTML=Object.keys(R).map(r=>`<option>${r}</option>`).join('');
- $('#exSel').innerHTML=allEx().map(n=>`<option>${n}</option>`).join('');
- $('#cList').innerHTML=S.custom.map((c,i)=>`<span class="chip" style="padding:5px 12px;border-radius:99px;font-size:12px;align-items:center">${c.n} · ${c.g}<button style="background:none;border:0;color:var(--mut);cursor:pointer;font-size:15px" onclick="delCustom(${i})">×</button></span>`).join('');
+ const keep=$('#exSel').value;$('#exSel').innerHTML=allEx().map(n=>`<option>${n}</option>`).join('');if(allEx().includes(keep))$('#exSel').value=keep;
+ $('#cList').innerHTML=S.custom.length?`<div class="w-full lbl" style="text-transform:none">Your exercises · swipe left to remove</div>`+S.custom.map((c,i)=>`<div class="swp" data-i="${i}"><div class="swp-bg">Delete</div><div class="swp-fg"><span>${c.n} <span class="lbl">${c.g}</span></span><button aria-label="Remove ${c.n}" onclick="delCustom(${i})">×</button></div></div>`).join(''):'';
 }
 function lastSession(n){const l=[...S.workouts].filter(w=>w.date<today()).sort((a,b)=>b.date<a.date?-1:1);for(const w of l){const e=w.ex.find(x=>x.n===n);if(e)return e}return null}
 function addEx(n){if(!n)return;const p=lastSession(n);const sets=p?p.sets.map(s=>({w:s.w,r:s.r,d:0})):[0,1,2].map(()=>({w:0,r:0,d:0}));S.draft.push({n,sets});save();renderLog()}
 function addCustom(){const n=$('#cName').value.replace(/[<>&"'`]/g,'').trim().slice(0,40);if(!n)return toast('Enter a name');if(allEx().includes(n)){$('#exSel').value=n;return toast('Exercise already exists')}S.custom.push({n,g:$('#cGrp').value});$('#cName').value='';fillSelects();$('#exSel').value=n;save();toast('Saved to your exercise library')}
 function delCustom(i){S.custom.splice(i,1);save();fillSelects()}
+/* swipe-left to remove a custom exercise (touch + mouse) */
+(function(){let st=null;
+ const reset=fg=>{fg.style.transition='transform .2s';fg.style.transform=''};
+ $('#cList').addEventListener('pointerdown',e=>{const fg=e.target.closest('.swp-fg');if(!fg||e.target.closest('button'))return;st={fg,x:e.clientX,y:e.clientY,dx:0,drag:false};fg.style.transition='none'});
+ window.addEventListener('pointermove',e=>{if(!st)return;const dx=e.clientX-st.x,dy=e.clientY-st.y;
+  if(!st.drag){if(Math.abs(dy)>8&&Math.abs(dy)>Math.abs(dx)){reset(st.fg);st=null;return}if(Math.abs(dx)>6)st.drag=true}
+  if(st.drag){st.dx=Math.min(0,dx);st.fg.style.transform='translateX('+st.dx+'px)'}});
+ const up=()=>{if(!st)return;const{fg,dx}=st;st=null;
+  if(dx<-fg.offsetWidth*.4){const i=+fg.parentNode.dataset.i;fg.style.transition='transform .18s';fg.style.transform='translateX(-110%)';setTimeout(()=>{delCustom(i);toast('Exercise removed')},170)}else reset(fg)};
+ window.addEventListener('pointerup',up);window.addEventListener('pointercancel',up)})();
 function loadRoutine(){R[$('#routineSel').value].forEach(addEx);toast('Routine loaded')}
 const chInfo=ch=>ch==null?['first session','var(--mut)']:[(ch>=0?'▲ +':'▼ ')+Math.abs(ch)+'% vs last',ch>=0?'var(--g)':'#FF6B6B'];
 function updVol(i){const e=S.draft[i];if(!e)return;const v=volOf(e),p=lastSession(e.n),pv=p?volOf(p):0,ch=pv?Math.round((v-pv)/pv*100):null,[t,c]=chInfo(ch),a=$('#dv'+i),b=$('#dc'+i);if(a)a.textContent=fv(v);if(b){b.textContent=t;b.style.color=c}}
@@ -238,6 +252,7 @@ function setVal(i,j,k,v){const s=S.draft[i].sets[j];s[k]=k==='w'?Math.max(0,toKg
 function addSet(i){const a=S.draft[i].sets,l=a[a.length-1]||{w:0,r:0};a.push({w:l.w,r:l.r,d:0});save();renderLog()}
 function delSet(i,j){S.draft[i].sets.splice(j,1);save();renderLog()}
 function delEx(i){S.draft.splice(i,1);save();renderLog()}
+function moveEx(i,d){const j=i+d;if(j<0||j>=S.draft.length)return;[S.draft[i],S.draft[j]]=[S.draft[j],S.draft[i]];save();renderLog();const c=document.querySelectorAll('#draft > .card')[j];if(c)c.scrollIntoView({block:'nearest',behavior:'smooth'})}
 function doneSet(i,j){const s=S.draft[i].sets[j];s.d=s.d?0:1;const pr=s.d?prCheck(S.draft[i].n,s):null;save();renderLog();if(s.d)startTimer(lastRest);if(pr)celebrate([pr],[])}
 function clearDraft(){if(S.draft.length&&!confirm('Clear all exercises from this workout?'))return;S.draft=[];save();renderLog()}
 function renderLog(){
@@ -248,7 +263,7 @@ function renderLog(){
   <div class="setrow lbl"><span>#</span><span>${S.unit}</span><span>Reps</span><span></span><span></span></div>
   ${e.sets.map((s,j)=>`<div class="setrow"><span style="color:var(--mut)">${j+1}</span><input type="number" step="0.5" inputmode="decimal" value="${s.w?fmt(s.w):''}" placeholder="0" onchange="setVal(${i},${j},'w',this.value)"><input type="number" inputmode="numeric" value="${s.r||''}" placeholder="0" onchange="setVal(${i},${j},'r',this.value)">
   <button class="btn ${s.d?'p':''}" style="padding:6px;justify-content:center" onclick="doneSet(${i},${j})">${ic('check')}</button><button style="color:var(--mut);background:none;border:0;cursor:pointer" onclick="delSet(${i},${j})">${ic('trash')}</button></div>`).join('')}
-  <div class="flex justify-between mt-3"><button class="btn" onclick="addSet(${i})">${ic('plus')}Set</button><button class="btn" style="color:#FF8A8A" onclick="delEx(${i})">Remove</button></div></div>`}).join(''):'<div class="card text-center" style="color:var(--mut)">No exercises yet. Load a routine or add an exercise to start logging.</div>';
+  <div class="flex justify-between items-center mt-3"><button class="btn" onclick="addSet(${i})">${ic('plus')}Set</button>${S.draft.length>1?`<div class="flex gap-2"><button class="btn" aria-label="Move exercise up" ${i===0?'disabled style="opacity:.3;pointer-events:none"':''} onclick="moveEx(${i},-1)">▲</button><button class="btn" aria-label="Move exercise down" ${i===S.draft.length-1?'disabled style="opacity:.3;pointer-events:none"':''} onclick="moveEx(${i},1)">▼</button></div>`:''}<button class="btn" style="color:#FF8A8A" onclick="delEx(${i})">Remove</button></div></div>`}).join(''):'<div class="card text-center" style="color:var(--mut)">No exercises yet. Load a routine or add an exercise to start logging.</div>';
 }
 function finish(){
  const ex=S.draft.map(e=>({n:e.n,sets:e.sets.filter(s=>s.r>0).map(s=>({w:s.w,r:s.r}))})).filter(e=>e.sets.length);
@@ -256,7 +271,7 @@ function finish(){
  let w=S.workouts.find(x=>x.date===today());
  if(w){w.ex.push(...ex);delete w.manual}else S.workouts.push({date:today(),ex});
  const prs=[];ex.forEach(e=>e.sets.forEach(s=>{const p=prCheck(e.n,s);if(p)prs.push(p)}));
- S.draft=[];save();renderAll();toast('Workout saved 💪');go('dash');celebrate(prs,newBadges())}
+ S.draft=[];save();cy=new Date().getFullYear();cm=new Date().getMonth();toast('Saved to History & marked in Days 💪');go('his');celebrate(prs,newBadges())}
 
 /* ---------- Timer ---------- */
 let tl=0,tot=0,ti=null,lastRest=90,actx;
@@ -395,9 +410,23 @@ function renderHis(){
  let wk='',h='';
  list.forEach(w=>{const k=kf(w);
   if(k!==wk){wk=k;const tot=list.filter(x=>kf(x)===k);h+=`<div class="lbl mt-2" style="color:var(--c)">${g==='m'?pd(w.date).toLocaleDateString(undefined,{month:'long',year:'numeric'}):'Week of '+wkStart(pd(w.date)).toLocaleDateString(undefined,{month:'short',day:'numeric'})} · ${tot.length} session${tot.length>1?'s':''} · ${fv(tot.reduce((a,x)=>a+wv(x),0))}</div>`}
-  h+=`<div class="card"><div class="flex justify-between items-start"><div><div class="font-bold">${pd(w.date).toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric',year:'numeric'})}</div><div class="text-xs" style="color:var(--mut)">${ns(w)} sets · ${fv(wv(w))}${w.manual?' · marked manually':''}</div></div><button style="background:none;border:0;color:var(--mut);cursor:pointer" onclick="delWo('${w.date}')">${ic('trash')}</button></div>`+
-  w.ex.map(e=>`<div class="mt-3"><div class="flex justify-between text-sm"><b>${e.n} <span class="lbl">${grp(e.n)}</span></b><span style="color:var(--mut)">${fv(volOf(e))}</span></div><div class="flex flex-wrap gap-2 mt-1">${e.sets.map((s,i)=>`<span class="chip g" style="padding:4px 10px;border-radius:99px;font-size:12px">${i+1}: ${s.w?fmt(s.w)+' '+S.unit:'BW'} × ${s.r}</span>`).join('')}</div></div>`).join('')+'</div>'});
+  h+=`<div class="card" style="cursor:pointer" role="button" tabindex="0" onclick="showWo('${w.date}')" onkeydown="if(event.key==='Enter')showWo('${w.date}')"><div class="flex justify-between items-start"><div><div class="font-bold">${pd(w.date).toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric',year:'numeric'})}</div><div class="text-xs" style="color:var(--mut)">${ns(w)} sets · ${fv(wv(w))}${w.manual?' · marked manually':''}</div></div><button aria-label="Delete workout" style="background:none;border:0;color:var(--mut);cursor:pointer" onclick="event.stopPropagation();delWo('${w.date}')">${ic('trash')}</button></div>`+
+  (w.ex.length?`<div class="mt-2 text-sm" style="color:var(--mut)">${w.ex.map(e=>e.n+' ×'+e.sets.length).join(' · ')}</div><div class="text-xs mt-2" style="color:var(--c)">Tap to see full workout ›</div>`:`<div class="text-xs mt-2" style="color:var(--mut)">No exercises logged for this day.</div>`)+'</div>'});
  $('#hList').innerHTML=h}
+
+/* ---------- Workout detail popup ---------- */
+function showWo(d){
+ const w=S.workouts.find(x=>x.date===d);if(!w)return;
+ const ns=w.ex.reduce((a,e)=>a+e.sets.length,0),rp=w.ex.reduce((a,e)=>a+e.sets.reduce((b,s)=>b+s.r,0),0),vol=w.ex.reduce((a,e)=>a+volOf(e),0);
+ const body=w.ex.length?w.ex.map(e=>{
+  const top=e.sets.reduce((m,s)=>e1(s.w,s.r)>e1(m.w,m.r)?s:m,e.sets[0]);
+  return `<div class="mt-4"><div class="flex justify-between text-sm"><b>${e.n} <span class="lbl">${grp(e.n)}</span></b><span style="color:var(--mut)">${fv(volOf(e))}</span></div>`+
+  e.sets.map((s,i)=>`<div class="flex justify-between text-sm py-1" style="border-bottom:1px solid var(--bd)"><span style="color:var(--mut)">Set ${i+1}</span><span>${s.w?fmt(s.w)+' '+S.unit:'Bodyweight'} × ${s.r}</span></div>`).join('')+
+  (top&&top.w>0?`<div class="text-xs mt-1" style="color:var(--c)">Best set est. 1RM: ${fv(e1(top.w,top.r))}</div>`:'')+'</div>'}).join(''):`<div class="mt-4 text-sm" style="color:var(--mut)">${w.manual?'This day was marked manually — no exercises were logged.':'No exercises logged.'}</div>`;
+ $('#mBox').innerHTML=`<div style="text-align:left"><div class="flex justify-between items-start"><div><div class="font-bold text-lg">${pd(d).toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric',year:'numeric'})}</div><div class="lbl">Workout details</div></div><button aria-label="Close" style="background:none;border:0;color:var(--mut);cursor:pointer;font-size:24px;line-height:1" onclick="$('#modal').classList.remove('show')">×</button></div>
+ <div class="grid grid-cols-3 gap-2 text-center mt-3"><div><div class="lbl">Exercises</div><div class="big" style="font-size:20px">${w.ex.length}</div></div><div><div class="lbl">Sets · Reps</div><div class="big" style="font-size:20px">${ns} · ${rp}</div></div><div><div class="lbl">Volume</div><div class="big" style="font-size:20px">${fv(vol)}</div></div></div>
+ ${body}<div class="text-center"><button class="btn p mt-4" onclick="$('#modal').classList.remove('show')">Close</button></div></div>`;
+ $('#modal').classList.add('show')}
 
 /* ---------- User Profile & Google Sheet sync ---------- */
 // Google Apps Script Web App Endpoint
